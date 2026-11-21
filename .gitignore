@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Never commit Kaggle credentials or KaggleFleet state
+kaggle.json
+credentials.json
+.kaggle/
+.kaggle_fleet/
+
+# Local runs
+outputs/
+.ipynb_checkpoints/

@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kaggle-fleet"
+dynamic = ["version"]
+description = "Run local Jupyter notebooks on Kaggle GPUs across a team of Kaggle accounts - from a CLI, a local web panel, or an AI agent."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "KaggleFleet contributors" }]
+keywords = ["kaggle", "gpu", "jupyter", "notebook", "kernels", "research", "multi-account", "cli", "ai-agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Utilities",
+]
+# The runtime itself is stdlib-only; it drives the official Kaggle CLI.
+dependencies = [
+    "kaggle>=1.7",
+    # kaggle 2.2.x imports `six` without declaring it; remove once fixed upstream.
+    "six",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.5"]
+
+[project.scripts]
+kfleet = "kaggle_fleet.cli:main"
+kaggle-fleet = "kaggle_fleet.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/towhaEL/KaggleFleet"
+Issues = "https://github.com/towhaEL/KaggleFleet/issues"
+Changelog = "https://github.com/towhaEL/KaggleFleet/blob/main/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = { attr = "kaggle_fleet.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+kaggle_fleet = ["server/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP"]
+ignore = ["E501", "B904", "UP007", "UP045"]
