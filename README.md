@@ -1,4 +1,4 @@
-# KaggleFleet - Your research team's GPU fleet, managed from one machine.
+# KaggleFleet
 
 **Run your local Jupyter notebooks on Kaggle GPUs — across your whole research team's Kaggle accounts — from the terminal, a local web panel, or an AI agent.**
 
