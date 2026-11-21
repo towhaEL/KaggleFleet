@@ -20,3 +20,4 @@ First public release.
 - `--json` output on every command, plus `kfleet doctor`, for scripts and AI agents. See `AGENTS.md`.
 - Cross-process file locking for the state files, so the CLI and the web panel can run at the same time.
 - Web panel protection against cross-site requests and DNS rebinding.
+- Published on PyPI as `kaggle-fleet` (`pipx install kaggle-fleet`), with a tag-driven release workflow using PyPI Trusted Publishing.

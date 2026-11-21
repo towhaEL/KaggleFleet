@@ -1,10 +1,41 @@
-# KaggleFleet
+<p align="center">
+  <img src="https://raw.githubusercontent.com/towhaEL/KaggleFleet/main/docs/images/banner.png"
+       alt="KaggleFleet: run local Jupyter notebooks on Kaggle GPUs across your research team's own accounts" width="100%">
+</p>
 
-**Run your local Jupyter notebooks on Kaggle GPUs — across your whole research team's Kaggle accounts — from the terminal, a local web panel, or an AI agent.**
+<p align="center">
+  <a href="https://pypi.org/project/kaggle-fleet/"><img src="https://img.shields.io/pypi/v/kaggle-fleet?color=6d5dfc" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/kaggle-fleet/"><img src="https://img.shields.io/pypi/pyversions/kaggle-fleet" alt="Python versions"></a>
+  <a href="https://github.com/towhaEL/KaggleFleet/actions/workflows/ci.yml"><img src="https://github.com/towhaEL/KaggleFleet/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/towhaEL/KaggleFleet/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL-lightgrey" alt="Linux, macOS, WSL">
+</p>
 
-[![CI](https://github.com/towhaEL/KaggleFleet/actions/workflows/ci.yml/badge.svg)](https://github.com/towhaEL/KaggleFleet/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+<p align="center">
+  <b>Run your local Jupyter notebooks on Kaggle GPUs, across your research team's own Kaggle accounts,<br>
+  from the terminal, a local web panel, or an AI agent.</b>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#web-panel">Web panel</a> ·
+  <a href="#using-kagglefleet-from-ai-agents-and-scripts">AI agents</a> ·
+  <a href="https://github.com/towhaEL/KaggleFleet/blob/main/CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/towhaEL/KaggleFleet/main/docs/images/demo.gif"
+       alt="Terminal demo: list accounts and notebooks, push a notebook to a co-author's account, check status and logs, download the outputs" width="860">
+</p>
+
+```bash
+pipx install kaggle-fleet
+kfleet account login --label "Me"
+kfleet run push train.ipynb --watch      # runs on a Kaggle GPU, downloads outputs when done
+```
+
+## Why KaggleFleet?
 
 Kaggle gives every account a free weekly GPU quota. A research group with several
 co-authors has several quotas, but using them means logging in and out of Kaggle,
@@ -14,12 +45,12 @@ copying notebooks around, and tracking who ran what. KaggleFleet does that part 
 - **One machine, many co-author accounts.** Each Kaggle account lives in its own credential sandbox, so runs can go to different accounts at the same time without leaking into each other.
 - **Push, watch, collect.** Pick an account and accelerator (T4, P100, TPU or CPU), push, follow status and logs, and download the outputs when the run finishes.
 - **A web panel for the team.** Accounts, approximate GPU hours used per account this week, live job status, logs, and one-click launches.
-- **Built for AI agents.** Every CLI command has `--json` output and meaningful exit codes, and [`AGENTS.md`](AGENTS.md) documents the workflow for coding agents.
+- **Built for AI agents.** Every CLI command has `--json` output and meaningful exit codes, and [`AGENTS.md`](https://github.com/towhaEL/KaggleFleet/blob/main/AGENTS.md) documents the workflow for coding agents.
 - **No runtime dependencies** besides the official `kaggle` CLI. The tool itself is pure Python standard library.
 
 | Accounts | Jobs |
 |---|---|
-| ![Accounts view](docs/images/panel-accounts.png) | ![Jobs view](docs/images/panel-jobs.png) |
+| ![Accounts view](https://raw.githubusercontent.com/towhaEL/KaggleFleet/main/docs/images/panel-accounts.png) | ![Jobs view](https://raw.githubusercontent.com/towhaEL/KaggleFleet/main/docs/images/panel-jobs.png) |
 
 > [!IMPORTANT]
 > KaggleFleet is for **teams of real people**, each using **their own** Kaggle account with their consent
@@ -41,16 +72,19 @@ copying notebooks around, and tracking who ran what. KaggleFleet does that part 
 - [CLI reference](#cli-reference)
 - [Limitations](#limitations)
 - [Development](#development)
+- [Contributing and releases](#contributing-and-releases)
 
 ## Install
 
 You need Python 3.9 or newer on **Linux or macOS**. On Windows, use WSL.
 
 ```bash
-pipx install git+https://github.com/towhaEL/KaggleFleet.git      # recommended
+pipx install kaggle-fleet          # recommended: isolated, puts `kfleet` on your PATH
 # or
-pip install git+https://github.com/towhaEL/KaggleFleet.git
+pip install kaggle-fleet
 ```
+
+To try the latest unreleased code: `pipx install git+https://github.com/towhaEL/KaggleFleet.git`.
 
 This installs two commands, `kfleet` and its longer alias `kaggle-fleet`, and pulls in the official `kaggle` CLI.
 Browser sign-in (`kfleet account login`) requires Kaggle CLI 2.x. API-key accounts work with 1.7 and newer.
@@ -71,7 +105,7 @@ kfleet notebook list               # see what KaggleFleet found
 kfleet run push train.ipynb --watch
 ```
 
-To try it on something small first, push [`examples/hello_gpu.ipynb`](examples/hello_gpu.ipynb), which reports the GPU it got.
+To try it on something small first, push [`examples/hello_gpu.ipynb`](https://github.com/towhaEL/KaggleFleet/blob/main/examples/hello_gpu.ipynb), which reports the GPU it got.
 
 With `--watch`, KaggleFleet polls the run until it finishes and then downloads the kernel's
 output files to `./outputs/<kernel-slug>/`. Without it, the push returns right away and you can
@@ -188,7 +222,7 @@ machine, prefer an SSH tunnel over exposing it:
 ssh -L 8080:127.0.0.1:8080 your-gpu-box     # then open http://127.0.0.1:8080 locally
 ```
 
-The panel is backed by a small JSON REST API, documented in [`docs/rest-api.md`](docs/rest-api.md).
+The panel is backed by a small JSON REST API, documented in [`docs/rest-api.md`](https://github.com/towhaEL/KaggleFleet/blob/main/docs/rest-api.md).
 
 ## Using KaggleFleet from AI agents and scripts
 
@@ -212,7 +246,7 @@ $ kfleet run logs   job_20261121_101500_nb-02-train_3f2a --json
 $ kfleet run download job_20261121_101500_nb-02-train_3f2a --json   # lists the downloaded files
 ```
 
-[`AGENTS.md`](AGENTS.md) is a guide written for coding agents such as Claude Code or Codex:
+[`AGENTS.md`](https://github.com/towhaEL/KaggleFleet/blob/main/AGENTS.md) is a guide written for coding agents such as Claude Code or Codex:
 the workflow, the JSON shapes, how to pick an account with spare GPU quota, and what not to do.
 Copy it, or link to it, from your research repo's own `AGENTS.md` / `CLAUDE.md`.
 
@@ -244,7 +278,7 @@ When the Kaggle CLI refreshes an OAuth token, the new token is copied back into 
 leaking from another account would be caught instead of passing silently.
 
 Credentials are stored **unencrypted** on disk and protected only by file permissions, the same way
-the Kaggle CLI stores them. Run KaggleFleet on a machine you trust. See [`SECURITY.md`](SECURITY.md).
+the Kaggle CLI stores them. Run KaggleFleet on a machine you trust. See [`SECURITY.md`](https://github.com/towhaEL/KaggleFleet/blob/main/SECURITY.md).
 
 ## CLI reference
 
@@ -281,8 +315,18 @@ ruff check src tests
 ```
 
 The test suite never contacts Kaggle: the `kaggle` CLI is mocked or replaced with a fake script.
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](https://github.com/towhaEL/KaggleFleet/blob/main/CONTRIBUTING.md).
+
+## Contributing and releases
+
+Bug reports, feature ideas and pull requests are welcome. Please read
+[`CONTRIBUTING.md`](https://github.com/towhaEL/KaggleFleet/blob/main/CONTRIBUTING.md) first, and report
+security issues privately as described in [`SECURITY.md`](https://github.com/towhaEL/KaggleFleet/blob/main/SECURITY.md).
+
+Releases are listed on the [GitHub releases page](https://github.com/towhaEL/KaggleFleet/releases) and
+[PyPI](https://pypi.org/project/kaggle-fleet/). Maintainers: see
+[`docs/RELEASING.md`](https://github.com/towhaEL/KaggleFleet/blob/main/docs/RELEASING.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/towhaEL/KaggleFleet/blob/main/LICENSE)
