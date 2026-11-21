@@ -202,6 +202,21 @@ class KaggleFleetRequestHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": f"Failed to read file: {e}"})
 
 
+class _QuietThreadingHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer that ignores clients hanging up mid-response.
+
+    A browser reload, closed tab or aborted fetch closes the socket while the
+    response is still being written. That is normal, so it is not worth the
+    traceback that socketserver prints by default.
+    """
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)):
+            return
+        super().handle_error(request, client_address)
+
+
 class KaggleFleetServer:
     """Zero-dependency ThreadingHTTPServer wrapper with lifecycle control."""
 
@@ -248,7 +263,7 @@ class KaggleFleetServer:
         Handler.any_host = host in ("0.0.0.0", "::", "")
         self.is_exposed = host not in ("127.0.0.1", "localhost", "::1")
 
-        self.httpd = ThreadingHTTPServer((self.host, self.port), Handler)
+        self.httpd = _QuietThreadingHTTPServer((self.host, self.port), Handler)
         # In case port was 0, retrieve bound port
         self.server_port = self.httpd.server_port
         self._server_thread: threading.Thread | None = None

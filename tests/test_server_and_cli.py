@@ -21,7 +21,7 @@ from kaggle_fleet.models import JobStatus
 from kaggle_fleet.notebook_manager import NotebookManager
 from kaggle_fleet.kaggle_runner import KaggleRunner
 from kaggle_fleet.storage import StorageEngine
-from kaggle_fleet.server.http_server import KaggleFleetServer
+from kaggle_fleet.server.http_server import KaggleFleetServer, _QuietThreadingHTTPServer
 
 
 class TestCliCommands(unittest.TestCase):
@@ -404,3 +404,24 @@ class TestHttpServerAndApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestQuietServerErrors(unittest.TestCase):
+    """Client disconnects are swallowed; real errors still reach handle_error."""
+
+    def _handle(self, exc: BaseException) -> str:
+        server = _QuietThreadingHTTPServer.__new__(_QuietThreadingHTTPServer)
+        buf = io.StringIO()
+        with patch("sys.stderr", buf):
+            try:
+                raise exc
+            except BaseException:
+                server.handle_error(None, ("127.0.0.1", 1))
+        return buf.getvalue()
+
+    def test_client_disconnects_are_silent(self) -> None:
+        for exc in (BrokenPipeError(32, "Broken pipe"), ConnectionResetError(), ConnectionAbortedError()):
+            self.assertEqual(self._handle(exc), "")
+
+    def test_other_errors_still_reported(self) -> None:
+        self.assertIn("ValueError", self._handle(ValueError("boom")))
