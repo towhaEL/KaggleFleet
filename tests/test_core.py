@@ -395,7 +395,8 @@ class TestKaggleRunner(unittest.TestCase):
     def test_download_outputs(self, mock_run):
         opt = RunOptions(notebook="00_data_prep.ipynb", account_id=self.account.id)
         job = self.runner.submit_job(opt)
-        target_dir = Path(self.tmpdir) / "custom_outputs"
+        # resolve(): on macOS the temp dir is /var/... -> /private/var/..., and the runner resolves paths.
+        target_dir = (Path(self.tmpdir) / "custom_outputs").resolve()
 
         mock_run.return_value = MagicMock(
             returncode=0,
