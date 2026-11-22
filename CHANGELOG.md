@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-22
+
+### Changed
+- Allow renewing credentials in place for invalid Kaggle accounts during login.
+- Make PyPI publishing retry-safe so an existing distribution does not fail the release workflow.
+
 ## [0.1.0] - 2026-11-21
 
 First public release.

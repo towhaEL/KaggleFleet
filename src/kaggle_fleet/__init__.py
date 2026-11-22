@@ -6,7 +6,7 @@ The runtime uses only the Python standard library; it drives the official
 `kaggle` CLI in a per-account sandbox.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from . import account_manager, config, kaggle_runner, models, notebook_manager, storage
 
