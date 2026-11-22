@@ -19,7 +19,7 @@ from . import __version__, config
 from .account_manager import AccountManager
 from .models import JobStatus, RunOptions
 from .notebook_manager import NotebookManager
-from .kaggle_runner import KaggleRunner
+from .kaggle_runner import KaggleRunner, empty_usage, quota_info
 from .storage import StorageEngine
 
 
@@ -107,23 +107,26 @@ def format_table(headers: list[str], rows: list[list[str]]) -> str:
 def cmd_account_list(args: argparse.Namespace, mgr: AccountManager) -> int:
     accounts = mgr.list_accounts()
     active_id = mgr.get_active_account_id()
-    usage = KaggleRunner(account_manager=mgr, storage=mgr.storage).gpu_usage_by_account(days=7)
-    no_usage = {"gpu_hours": 0.0, "active_jobs": 0}
+    runner = KaggleRunner(account_manager=mgr, storage=mgr.storage)
+    if getattr(args, "refresh_usage", False):
+        runner.refresh_runtimes()
+    usage = runner.gpu_usage_by_account()
+    quota = quota_info()
 
     if args.json:
         out = []
         for a in accounts:
             d = public_account(a, active_id)
-            d["usage"] = usage.get(a.id, no_usage)
+            d["usage"] = usage.get(a.id, empty_usage())
             out.append(d)
-        return emit({"active_account_id": active_id, "usage_window_days": 7, "accounts": out})
+        return emit({"active_account_id": active_id, **quota, "accounts": out})
 
     if not accounts:
         print(f"{Style.YELLOW}No Kaggle accounts configured yet.{Style.RESET}")
         print("Run `kfleet account login`, `kfleet account import` or `kfleet account add` to get started.")
         return 0
 
-    headers = ["Act", "Account ID", "Label", "Username", "Auth", "Status", "GPU h (7d)", "Running", "Last Used"]
+    headers = ["Act", "Account ID", "Label", "Username", "Auth", "Status", "GPU h (week)", "Running", "Last Used"]
     rows = []
     for acc in accounts:
         is_active = (acc.id == active_id)
@@ -146,13 +149,17 @@ def cmd_account_list(args: argparse.Namespace, mgr: AccountManager) -> int:
             acc.username,
             acc.auth_type,
             status_colored,
-            f"{usage.get(acc.id, no_usage)['gpu_hours']:.1f}",
-            str(usage.get(acc.id, no_usage)["active_jobs"]),
+            f"{usage.get(acc.id, empty_usage())['gpu_hours']:.1f}",
+            str(usage.get(acc.id, empty_usage())["active_jobs"]),
             last_used,
         ])
 
     print(f"\n{Style.BOLD}Configured Kaggle Accounts ({len(accounts)}):{Style.RESET}\n")
     print(format_table(headers, rows))
+    left = quota["quota_resets_in_seconds"]
+    reset = quota["quota_reset_at"][:16].replace("T", " ")
+    print(f"\nQuota resets {reset} UTC (in {left // 86400}d {left % 86400 // 3600}h). "
+          "GPU hours are an estimate; Kaggle's quota page is authoritative.")
     print()
     return 0
 
@@ -669,7 +676,12 @@ def _build_subcommands(subparsers: Any) -> None:
     acc_sub = p_acc.add_subparsers(dest="subcommand", help="Account action")
 
     # account list
-    _add(acc_sub, "list", help="List all configured accounts")
+    p_acc_list = _add(acc_sub, "list", help="List all configured accounts")
+    p_acc_list.add_argument(
+        "--refresh-usage", action="store_true",
+        help="Read run times from Kaggle logs for finished jobs this quota week "
+             "(one API call per job that lacks it)",
+    )
 
     # account add
     p_acc_add = _add(acc_sub, "add", help="Add an API key account")

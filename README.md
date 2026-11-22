@@ -212,7 +212,7 @@ kfleet serve --port 9000 --open
 
 The panel has three views:
 
-- **Accounts:** add, test, switch and remove accounts, with each account's estimated GPU hours for the last 7 days.
+- **Accounts:** add, test, switch and remove accounts, with each account's estimated GPU hours this quota week and a countdown to the weekly reset.
 - **Launch notebook:** pick a notebook, an account and hardware, then push.
 - **Jobs:** live status, logs, refresh and download for every run.
 
@@ -261,6 +261,7 @@ Copy it, or link to it, from your research repo's own `AGENTS.md` / `CLAUDE.md`.
 | `KAGGLE_FLEET_OUTPUTS_DIR` | `./outputs` | Where kernel outputs are downloaded |
 | `KAGGLE_FLEET_KAGGLE_BIN` | auto-detected | Path to the `kaggle` executable |
 | `KAGGLE_FLEET_SLUG_PREFIX` | `nb` | Prefix for slugs derived from file names that start with a digit |
+| `KAGGLE_FLEET_QUOTA_RESET` | `sat 00:00` | Weekly quota reset as `<weekday> HH:MM` in UTC; change it if Kaggle's quota page shows a different reset |
 
 `--notebooks-dir` and `--outputs-dir` override the matching variables for a single command.
 

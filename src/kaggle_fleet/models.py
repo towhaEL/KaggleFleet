@@ -150,6 +150,7 @@ class JobRecord:
     created_at: str = field(default_factory=utc_now_iso)
     started_at: str | None = None
     completed_at: str | None = None
+    runtime_seconds: float | None = None   # execution time reported by Kaggle's logs
     output_dir: str | None = None
     exit_code: int | None = None
     error_message: str | None = None
@@ -180,6 +181,7 @@ class JobRecord:
             created_at=data.get("created_at") or utc_now_iso(),
             started_at=data.get("started_at"),
             completed_at=data.get("completed_at"),
+            runtime_seconds=data.get("runtime_seconds"),
             output_dir=data.get("output_dir"),
             exit_code=data.get("exit_code"),
             error_message=data.get("error_message"),

@@ -21,7 +21,7 @@ Account objects never include credentials: `credentials` is always `{}`.
 
 | Method | Path | Body | Description |
 |---|---|---|---|
-| GET | `/api/accounts` | | All accounts with `usage` (`gpu_hours`, `active_jobs`) for the last 7 days |
+| GET | `/api/accounts` | | All accounts with `usage` (`gpu_hours`, `tpu_hours`, `active_jobs`) for the current quota week, plus `quota_window_start`, `quota_reset_at` and `quota_resets_in_seconds` |
 | POST | `/api/accounts` | `{username, api_key, label?, make_active?, notes?}` | Add an API-key account |
 | POST | `/api/accounts/import` | | Import `~/.kaggle/kaggle.json` / `credentials.json` |
 | POST | `/api/accounts/login` | `{label?, make_active?}` | Browser sign-in on the server machine (blocks until done) |

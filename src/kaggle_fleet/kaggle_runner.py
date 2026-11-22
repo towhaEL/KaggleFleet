@@ -4,6 +4,7 @@ Headless Kaggle kernel runner, status monitor, and output downloader.
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 import uuid
@@ -15,6 +16,47 @@ from .account_manager import AccountManager
 from .models import JobRecord, JobStatus, RunOptions, utc_now_iso
 from .notebook_manager import NotebookManager
 from .storage import StorageEngine
+
+_FINISHED = (JobStatus.COMPLETE, JobStatus.DOWNLOADED, JobStatus.ERROR, JobStatus.CANCELLED)
+_LOG_TIME = re.compile(r'"time"\s*:\s*([0-9]+(?:\.[0-9]+)?)')
+
+
+def empty_usage() -> dict[str, Any]:
+    return {"gpu_hours": 0.0, "tpu_hours": 0.0, "active_jobs": 0}
+
+
+def accelerator_kind(job: JobRecord) -> str | None:
+    """'gpu', 'tpu' or None (CPU-only run) -- Kaggle meters GPU and TPU separately."""
+    acc = (job.accelerator or "").lower()
+    if acc.startswith("tpu"):
+        return "tpu"
+    if not job.enable_gpu or acc in ("", "none"):
+        return None
+    return "gpu"
+
+
+def quota_info(now: Any = None) -> dict[str, Any]:
+    """When the current Kaggle quota week started and when it next resets (UTC)."""
+    from datetime import datetime, timezone
+
+    now = now or datetime.now(timezone.utc)
+    start, reset = config.quota_window(now)
+    return {
+        "quota_window_start": start.isoformat(),
+        "quota_reset_at": reset.isoformat(),
+        "quota_resets_in_seconds": int((reset - now).total_seconds()),
+    }
+
+
+def runtime_from_logs(logs: str) -> float | None:
+    """
+    Execution time in seconds from `kaggle kernels logs` output.
+
+    Each log entry carries "time": seconds since the session started, so the
+    largest one is how long the kernel ran (queue time is excluded).
+    """
+    times = [float(m) for m in _LOG_TIME.findall(logs or "")]
+    return max(times) if times else None
 
 
 class KaggleRunner:
@@ -43,18 +85,23 @@ class KaggleRunner:
             jobs.sort(key=lambda j: j.created_at or "", reverse=True)
             return jobs[:limit]
 
-    def gpu_usage_by_account(self, days: int = 7) -> dict[str, dict[str, Any]]:
+    def gpu_usage_by_account(self, now: Any = None) -> dict[str, dict[str, Any]]:
         """
-        Approximate accelerator hours per account over the last `days` days.
+        Accelerator hours per account in the current Kaggle quota week.
 
-        Only jobs launched through KaggleFleet are counted, and a run's end is
-        the moment the hub observed it finish, so this is an estimate for
-        spreading work across accounts -- not Kaggle's official quota meter.
+        Kaggle's weekly quota resets at a fixed moment (see
+        `config.quota_window`), so only time since the last reset counts.
+        A run's length is the execution time from its Kaggle logs when known
+        (`runtime_seconds`); otherwise it is push -> observed end, capped at
+        Kaggle's 12 h session limit, so a hub that was offline when a run
+        finished can no longer bill it for the whole gap. GPU and TPU quotas
+        are separate. Only jobs launched through KaggleFleet are counted.
         """
         from datetime import datetime, timedelta, timezone
 
-        now = datetime.now(timezone.utc)
-        since = now - timedelta(days=days)
+        now = now or datetime.now(timezone.utc)
+        since, _ = config.quota_window(now)
+        cap = timedelta(seconds=config.KAGGLE_SESSION_LIMIT_SECONDS)
         usage: dict[str, dict[str, Any]] = {}
 
         def parse(ts: str | None):
@@ -66,25 +113,85 @@ class KaggleRunner:
                 return None
 
         for job in self.list_jobs(limit=10_000):
-            u = usage.setdefault(job.account_id, {"gpu_hours": 0.0, "active_jobs": 0})
+            u = usage.setdefault(job.account_id, empty_usage())
             if job.status in (JobStatus.QUEUED, JobStatus.RUNNING):
                 u["active_jobs"] += 1
-            if not job.enable_gpu or job.accelerator == "None":
+            kind = accelerator_kind(job)
+            if kind is None:
                 continue
             start = parse(job.started_at)
             if start is None:
                 continue
-            end = parse(job.completed_at)
-            if end is None:
-                if job.status not in (JobStatus.QUEUED, JobStatus.RUNNING):
-                    continue                      # finished but never observed
-                end = now
+            if job.runtime_seconds is not None:
+                end = start + timedelta(seconds=max(0.0, float(job.runtime_seconds)))
+                observed = parse(job.completed_at)
+                if observed is not None:
+                    # The hub sees a run end at or after its real end, so a
+                    # longer log time belongs to some other run.
+                    end = min(end, observed)
+            elif job.status == JobStatus.QUEUED:
+                continue                          # not using quota yet
+            else:
+                end = parse(job.completed_at)
+                if end is None:
+                    if job.status != JobStatus.RUNNING:
+                        continue                  # finished but never observed
+                    end = now
+            end = min(end, start + cap, now)
             start = max(start, since)
             if end > start:
-                u["gpu_hours"] += (end - start).total_seconds() / 3600
+                u[f"{kind}_hours"] += (end - start).total_seconds() / 3600
         for u in usage.values():
             u["gpu_hours"] = round(u["gpu_hours"], 2)
+            u["tpu_hours"] = round(u["tpu_hours"], 2)
         return usage
+
+    def refresh_runtimes(self) -> int:
+        """
+        Fill in `runtime_seconds` from Kaggle logs for finished accelerator
+        jobs in the current quota week that don't have it yet. Makes one
+        `kaggle kernels logs` call per such job. Returns how many were updated.
+        """
+        since, _ = config.quota_window()
+        updated = 0
+        jobs = self.list_jobs(limit=10_000)          # newest first
+        latest = {}
+        for job in jobs:
+            latest.setdefault(job.kernel_id, job.id)
+        for job in jobs:
+            # `kernels logs` returns the newest version's logs only, so a job
+            # that was re-pushed under the same slug can't be measured.
+            if (job.runtime_seconds is not None or not job.started_at
+                    or latest[job.kernel_id] != job.id
+                    or accelerator_kind(job) is None
+                    or job.status not in _FINISHED
+                    or (job.completed_at or job.started_at) < since.isoformat()):
+                continue
+            if self._record_runtime(job):
+                self.save_job(job)
+                updated += 1
+        return updated
+
+    def _record_runtime(self, job: JobRecord, logs: str | None = None) -> bool:
+        """Set job.runtime_seconds from its Kaggle logs. Returns True if set."""
+        if logs is None:
+            account = self.account_manager.get_account(job.account_id)
+            if not account:
+                return False
+            try:
+                proc = self.account_manager.run_kaggle(
+                    account, ["kernels", "logs", job.kernel_id], timeout=60,
+                )
+            except Exception:
+                return False
+            if proc.returncode != 0:
+                return False
+            logs = proc.stdout or ""
+        runtime = runtime_from_logs(logs)
+        if runtime is None:
+            return False
+        job.runtime_seconds = round(runtime, 1)
+        return True
 
     def get_job(self, job_id: str) -> JobRecord | None:
         """Get a single job record by ID."""
@@ -270,6 +377,8 @@ class KaggleRunner:
                     job.completed_at = utc_now_iso()
 
             job.last_log_snippet = output
+            if job.status in _FINISHED and job.runtime_seconds is None:
+                self._record_runtime(job)
             self.save_job(job)
 
         except Exception as e:
@@ -299,6 +408,8 @@ class KaggleRunner:
             lines = logs.strip().splitlines()
             if lines:
                 job.last_log_snippet = "\n".join(lines[-10:])
+                if job.status in _FINISHED and job.runtime_seconds is None:
+                    self._record_runtime(job, logs)
                 self.save_job(job)
             return logs
         except Exception as e:

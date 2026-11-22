@@ -8,6 +8,7 @@ Everything can be overridden with environment variables:
     KAGGLE_FLEET_OUTPUTS_DIR    where kernel outputs are downloaded     default ./outputs
     KAGGLE_FLEET_KAGGLE_BIN     path to the `kaggle` executable         default: auto-detect
     KAGGLE_FLEET_SLUG_PREFIX    prefix for slugs that start with digits default "nb"
+    KAGGLE_FLEET_QUOTA_RESET    weekly quota reset, "<weekday> HH:MM" UTC default "sat 00:00"
 """
 
 from __future__ import annotations
@@ -99,6 +100,40 @@ ACCELERATOR_CHOICES = ["None", "NvidiaTeslaT4", "NvidiaTeslaP100", "TpuV5E8"]
 
 DEFAULT_PUSH_TIMEOUT = 3600
 DEFAULT_POLL_INTERVAL = 10
+
+
+# Kaggle's weekly accelerator quota resets at a fixed moment each week, not on a
+# rolling 7-day window. Saturday 00:00 UTC is the commonly reported reset; set
+# KAGGLE_FLEET_QUOTA_RESET (e.g. "fri 17:00") if Kaggle's quota page disagrees.
+KAGGLE_SESSION_LIMIT_SECONDS = 12 * 3600
+_WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+def quota_reset_schedule() -> tuple[int, int, int]:
+    """(weekday 0=Mon, hour, minute) in UTC of the weekly quota reset."""
+    raw = os.environ.get("KAGGLE_FLEET_QUOTA_RESET", "").strip().lower()
+    try:
+        day, _, clock = raw.partition(" ")
+        hh, _, mm = (clock or "00:00").partition(":")
+        weekday, hour, minute = _WEEKDAYS.index(day[:3]), int(hh), int(mm or 0)
+        if 0 <= hour < 24 and 0 <= minute < 60:
+            return weekday, hour, minute
+    except ValueError:
+        pass
+    return 5, 0, 0
+
+
+def quota_window(now=None):
+    """(start of the current quota week, next reset) as aware UTC datetimes."""
+    from datetime import datetime, timedelta, timezone
+
+    now = now or datetime.now(timezone.utc)
+    weekday, hour, minute = quota_reset_schedule()
+    last = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    last -= timedelta(days=(now.weekday() - weekday) % 7)
+    if last > now:
+        last -= timedelta(days=7)
+    return last, last + timedelta(days=7)
 
 
 def normalize_accelerator(acc: str | None) -> str:

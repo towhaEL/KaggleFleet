@@ -14,7 +14,7 @@ from .. import __version__, config
 from ..account_manager import AccountManager
 from ..models import JobStatus, RunOptions
 from ..notebook_manager import NotebookManager
-from ..kaggle_runner import KaggleRunner
+from ..kaggle_runner import KaggleRunner, empty_usage, quota_info
 from ..storage import StorageEngine
 
 
@@ -145,16 +145,16 @@ class ApiDispatcher:
             if method == "GET":
                 accounts = self.account_manager.list_accounts()
                 active_id = self.account_manager.get_active_account_id()
-                usage = self.runner.gpu_usage_by_account(days=7)
+                usage = self.runner.gpu_usage_by_account()
                 out = []
                 for a in accounts:
                     d = self._public(a)
-                    d["usage"] = usage.get(a.id, {"gpu_hours": 0.0, "active_jobs": 0})
+                    d["usage"] = usage.get(a.id, empty_usage())
                     out.append(d)
                 return 200, {
                     "accounts": out,
                     "active_account_id": active_id,
-                    "usage_window_days": 7,
+                    **quota_info(),
                 }
             elif method == "POST":
                 # Add account

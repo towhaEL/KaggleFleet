@@ -9,6 +9,7 @@ const S = {
   tab: "accounts",
   accounts: [],
   activeId: null,
+  quotaResetAt: null,
   notebooks: [],
   selectedNb: null,
   jobs: [],
@@ -73,6 +74,22 @@ function fmtDuration(startIso, endIso) {
   return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
 }
 
+function fmtResetIn(iso) {
+  if (!iso) return "";
+  let s = Math.max(0, Math.round((new Date(iso) - new Date()) / 1000));
+  const d = Math.floor(s / 86400); s -= d * 86400;
+  const h = Math.floor(s / 3600); s -= h * 3600;
+  const m = Math.floor(s / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
+}
+
+function resetLabel() {
+  if (!S.quotaResetAt) return "";
+  const at = new Date(S.quotaResetAt).toLocaleString([], {
+    weekday: "short", hour: "2-digit", minute: "2-digit" });
+  return `resets ${at} · in ${fmtResetIn(S.quotaResetAt)}`;
+}
+
 function quotaHours(acc) {
   const m = /(\d+(?:\.\d+)?)\s*h/i.exec(acc.quota_notes || "");
   return m ? parseFloat(m[1]) : 30;
@@ -129,6 +146,7 @@ async function loadAccounts() {
     const d = await api("/api/accounts");
     S.accounts = d.accounts || [];
     S.activeId = d.active_account_id;
+    S.quotaResetAt = d.quota_reset_at || null;
     renderAccounts();
     renderAccountSelect();
     renderJobsFilter();
@@ -149,6 +167,7 @@ function renderAccounts() {
   $("stat-used").textContent = used.toFixed(1) + " h";
   $("stat-left").textContent = Math.max(0, total - used).toFixed(1) + " h";
   $("stat-left-note").textContent = `of ${total.toFixed(0)} h weekly`;
+  $("stat-used-note").textContent = resetLabel() || "tracked by KaggleFleet";
   $("stat-running").textContent = running;
 
   const grid = $("accounts-grid");
@@ -189,7 +208,7 @@ function renderAccounts() {
         </div>
 
         <div>
-          <div class="meter-row"><span class="muted">GPU · last 7 days</span><strong>${usedH.toFixed(1)} / ${quota} h</strong></div>
+          <div class="meter-row"><span class="muted">GPU · this week</span><strong>${usedH.toFixed(1)} / ${quota} h</strong></div>
           <div class="meter ${meterCls}"><span style="width:${pct.toFixed(1)}%"></span></div>
         </div>
 

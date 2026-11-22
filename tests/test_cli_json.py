@@ -44,7 +44,10 @@ class TestCliJson(unittest.TestCase):
     def test_account_list_empty_and_after_add(self):
         code, data = self.run_cli("account", "list", "--json")
         self.assertEqual(code, 0)
-        self.assertEqual(data, {"active_account_id": None, "usage_window_days": 7, "accounts": []})
+        self.assertEqual(data["accounts"], [])
+        self.assertIsNone(data["active_account_id"])
+        self.assertIn("quota_reset_at", data)
+        self.assertGreater(data["quota_resets_in_seconds"], 0)
 
         code, data = self.run_cli("--json", "account", "add", "-u", "alice", "-k", "secret")
         self.assertEqual(code, 0)
@@ -54,7 +57,7 @@ class TestCliJson(unittest.TestCase):
         code, data = self.run_cli("account", "list", "--json")
         self.assertEqual(len(data["accounts"]), 1)
         self.assertTrue(data["accounts"][0]["active"])
-        self.assertEqual(data["accounts"][0]["usage"], {"gpu_hours": 0.0, "active_jobs": 0})
+        self.assertEqual(data["accounts"][0]["usage"], {"gpu_hours": 0.0, "tpu_hours": 0.0, "active_jobs": 0})
 
     def test_global_flag_position_is_flexible(self):
         a = self.run_cli("--json", "--notebooks-dir", str(FIXTURE_NOTEBOOKS), "notebook", "list")

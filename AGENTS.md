@@ -33,7 +33,7 @@ kfleet doctor --json
 
 # 1. What can be run, and on which account?
 kfleet notebook list --json
-kfleet account list --json          # includes usage.gpu_hours for the last 7 days
+kfleet account list --json          # usage.gpu_hours this quota week, plus quota_reset_at
 
 # 2. Push. Returns as soon as Kaggle accepts the kernel.
 kfleet run push <notebook.ipynb> --account <username> --json [--accelerator NvidiaTeslaT4]
@@ -56,7 +56,9 @@ recent job is used.
 When the user doesn't name an account, pick one from `kfleet account list --json` with
 `status == "valid"`, the lowest `usage.gpu_hours`, and `usage.active_jobs < 2`. Kaggle allows only a
 couple of concurrent GPU sessions per account. Tell the user which account you chose.
-`usage` is an **estimate** from jobs launched through KaggleFleet. Kaggle's quota page is authoritative.
+`usage` is an **estimate** from jobs launched through KaggleFleet, counted since the last weekly reset
+(`quota_window_start`; the next one is `quota_reset_at`). Kaggle's quota page is authoritative.
+GPU and TPU quotas are separate (`usage.gpu_hours`, `usage.tpu_hours`).
 
 ### Job status values
 
@@ -84,10 +86,11 @@ Use a different account or wait. Don't loop.
            "error_message": null, "last_log_snippet": "..." } }
 
 // kfleet account list --json
-{ "active_account_id": "acc_alice_9f8e7d", "usage_window_days": 7,
+{ "active_account_id": "acc_alice_9f8e7d", "quota_window_start": "2026-11-21T00:00:00+00:00",
+  "quota_reset_at": "2026-11-28T00:00:00+00:00", "quota_resets_in_seconds": 486000,
   "accounts": [ { "id": "acc_alice_9f8e7d", "username": "alice", "label": "Alice",
                   "status": "valid", "active": true, "auth_type": "oauth_token",
-                  "usage": { "gpu_hours": 3.2, "active_jobs": 1 }, "credentials": {} } ] }
+                  "usage": { "gpu_hours": 3.2, "tpu_hours": 0.0, "active_jobs": 1 }, "credentials": {} } ] }
 
 // any failure (exit code 1)
 { "error": "Job 'nope' not found in local history." }
