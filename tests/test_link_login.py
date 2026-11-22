@@ -85,6 +85,22 @@ class TestLinkLogin(unittest.TestCase):
         self.assertIn("private window", str(ctx.exception))
         self.assertEqual(len(self.mgr.list_accounts()), 1)
 
+    def test_invalid_account_is_renewed_in_place(self):
+        old = self.mgr.add_account("Old", "gamma", "oauth_token",
+                                   {"refresh_token": "x", "username": "gamma"})
+        self.mgr.update_account(old.id, status="invalid")
+        d = self.mgr.start_link_login(wait=10)
+        acc = self.mgr.finish_link_login(d["session"], "good")
+        self.assertEqual(acc.id, old.id)
+        self.assertEqual(acc.status, "valid")
+        self.assertEqual(acc.label, "Old")              # no label given: keep the old one
+        self.assertEqual(len(self.mgr.list_accounts()), 1)
+        stored = self.mgr.get_account(old.id)
+        self.assertEqual(stored.credentials["refresh_token"], "r")
+        on_disk = self.mgr._read_json(self.mgr.envs_dir / old.id / "credentials.json")
+        self.assertEqual(on_disk["refresh_token"], "r")
+        self.assertEqual(self._pending(), [])
+
     def test_cancel_kills_process_and_removes_sandbox(self):
         d = self.mgr.start_link_login(wait=10)
         proc = self.mgr._link_logins[d["session"]]["proc"]

@@ -122,6 +122,19 @@ class TestBrowserLogin(_Base):
         self.assertIn("already configured", str(ctx.exception))
         self.assertEqual(len(self.mgr.list_accounts()), 1)
 
+    def test_login_renews_invalid_api_key_account(self):
+        old = self.mgr.add_account("A", "alpha", "api_key", {"key": "k"})
+        self.mgr.update_account(old.id, status="invalid")
+        self.assertTrue((self.mgr.envs_dir / old.id / "kaggle.json").exists())
+        with patch("subprocess.run", side_effect=self._fake_login("alpha")):
+            acc = self.mgr.login_oauth(label="Alpha", make_active=True)
+        self.assertEqual(acc.id, old.id)
+        self.assertEqual((acc.auth_type, acc.status, acc.label), ("oauth_token", "valid", "Alpha"))
+        self.assertEqual(len(self.mgr.list_accounts()), 1)
+        self.assertFalse((self.mgr.envs_dir / old.id / "kaggle.json").exists())
+        self.assertTrue((self.mgr.envs_dir / old.id / "credentials.json").exists())
+        self.assertEqual(self.mgr.get_active_account_id(), old.id)
+
 
 class TestRunLifecycle(_Base):
     def setUp(self):

@@ -140,7 +140,9 @@ or use `--no-browser` to get a link you can open in a private window or on anoth
 paste the verification code back.
 
 The login runs inside a throwaway sandbox. Your own `~/.kaggle` login is never read or changed,
-and adding an account that is already configured is refused.
+and adding an account that is already configured and valid is refused. If an account has become
+**invalid** (for example its token expired or was revoked), sign in again as that account: its
+credentials are replaced in place and it keeps its ID and job history.
 
 In the web panel, **Sign in with browser** offers the same flow as a link plus a code field, which
 works well when a co-author signs in from their own laptop.

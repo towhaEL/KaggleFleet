@@ -509,6 +509,10 @@ class AccountManager:
         if not username:
             raise RuntimeError("Login succeeded but returned no username.")
         existing = self.get_account(username)
+        if existing and existing.status != "valid":
+            # Signing in again repairs an invalid account in place, keeping its
+            # id (and so its job history) instead of refusing it as a duplicate.
+            return self._reauth_account(existing, creds, label, make_active)
         if existing:
             raise RuntimeError(
                 f"'{username}' is already configured (id {existing.id}). Kaggle signed in as "
@@ -523,6 +527,33 @@ class AccountManager:
             make_active=make_active,
             notes="Added via sandboxed `kaggle auth login`",
         )
+
+    @_locked
+    def _reauth_account(self, account: Account, creds: dict[str, Any], label: str | None,
+                        make_active: bool) -> Account:
+        """Replace an existing account's credentials with a fresh OAuth login."""
+        doc = self.storage.load_accounts()
+        target = next((a for a in doc.get("accounts", []) if a.get("id") == account.id), None)
+        if target is None:
+            raise RuntimeError(f"Account '{account.username}' disappeared during sign-in.")
+        target["auth_type"] = "oauth_token"
+        target["credentials"] = creds
+        target["status"] = "valid"
+        if label:
+            target["label"] = label
+        updated = Account.from_dict(target)
+
+        # A stale kaggle.json from an earlier API-key setup must not shadow the new token.
+        stale_key = self.envs_dir / account.id / "kaggle.json"
+        if stale_key.exists():
+            stale_key.unlink()
+        self._sync_env_credentials(updated)
+
+        if make_active:
+            doc["active_account_id"] = updated.id
+            self._update_active_symlink(updated.id)
+        self.storage.save_accounts(doc)
+        return updated
 
     # -- sign-in with a link + verification code (works from the web panel) ----
     #

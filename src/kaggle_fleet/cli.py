@@ -213,12 +213,15 @@ def cmd_account_add_oauth(args: argparse.Namespace, mgr: AccountManager) -> int:
 def cmd_account_login(args: argparse.Namespace, mgr: AccountManager) -> int:
     print("Opening Kaggle sign-in in your browser. Whichever Kaggle account is signed in")
     print("there is the one that gets added; your current ~/.kaggle login is not touched.")
+    print("Signing in to an account that is already here but invalid renews its credentials.")
+    known = {a.id for a in mgr.list_accounts()}
     try:
         acc = mgr.login_oauth(label=args.label, make_active=args.active, no_browser=args.no_browser)
     except Exception as e:
         print(f"{Style.RED}[!] Login failed:{Style.RESET} {e}", file=sys.stderr)
         return 1
-    print(f"{Style.GREEN}[+] Added OAuth account:{Style.RESET} {acc.username} (ID: {acc.id})")
+    verb = "Renewed credentials for" if acc.id in known else "Added OAuth account:"
+    print(f"{Style.GREEN}[+] {verb}{Style.RESET} {acc.username} (ID: {acc.id})")
     ok, msg = mgr.test_account(acc.id)
     print(f"{Style.GREEN if ok else Style.RED}[{'PASS' if ok else 'FAIL'}] {msg}{Style.RESET}")
     return 0 if ok else 1
