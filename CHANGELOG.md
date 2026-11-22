@@ -6,12 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-22
+
+### Changed
+- Allow renewing credentials in place for invalid Kaggle accounts during login.
+- Make PyPI publishing retry-safe so an existing distribution does not fail the release workflow.
+
 ## [0.1.0] - 2026-11-21
 
 First public release.
 
 ### Added
 - Multiple Kaggle accounts on one machine, each in an isolated credential sandbox (per-account `KAGGLE_CONFIG_DIR` and `HOME`).
+- Account sign-in through the browser (sandboxed `kaggle_config_dir` and `HOME`).
 - Account sign-in through the browser (sandboxed `kaggle auth login`), sign-in with a link and code, API keys, and import from `~/.kaggle`.
 - `kfleet account test` checks the identity Kaggle reports, not just that a login works.
 - Notebook discovery, staging, and `kernel-metadata.json` generation, with dataset, competition, kernel and model sources.
