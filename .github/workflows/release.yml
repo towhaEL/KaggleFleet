@@ -7,23 +7,40 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag, for example v0.1.2"
+        required: true
+        type: string
 
 permissions:
   contents: read
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Verify the release commit is on main
+        run: |
+          git fetch origin main
+          commit=$(git rev-parse "$RELEASE_TAG^{commit}")
+          git merge-base --is-ancestor "$commit" origin/main
       - name: Check the tag matches the package version
         run: |
           version=$(python -c "import re,pathlib;print(re.search(r'__version__ = \"(.+?)\"', pathlib.Path('src/kaggle_fleet/__init__.py').read_text()).group(1))")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match __version__ $version"; exit 1
+          if [ "v$version" != "$RELEASE_TAG" ]; then
+            echo "::error::Tag $RELEASE_TAG does not match __version__ $version"; exit 1
           fi
       - run: pip install build twine
       - run: python -m build
@@ -32,7 +49,7 @@ jobs:
         run: unzip -l dist/*.whl | grep -q "kaggle_fleet/server/static/index.html"
       - name: Extract release notes from CHANGELOG.md
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v="${RELEASE_TAG#v}"
           awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > release-notes.md
           test -s release-notes.md || { echo "::error::No CHANGELOG.md section for $v"; exit 1; }
       - uses: actions/upload-artifact@v4
@@ -71,7 +88,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
+          gh release create "$RELEASE_TAG" dist/* \
             --repo "$GITHUB_REPOSITORY" \
-            --title "KaggleFleet ${GITHUB_REF_NAME}" \
+            --title "KaggleFleet ${RELEASE_TAG}" \
+            --verify-tag \
             --notes-file release-notes.md

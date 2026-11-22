@@ -1,8 +1,11 @@
 # Releasing KaggleFleet
 
-Releases are published by [`.github/workflows/release.yml`](../.github/workflows/release.yml)
-when a `v*` tag is pushed. The workflow builds the sdist and wheel, publishes them to PyPI,
-and creates a GitHub release whose notes come from `CHANGELOG.md`.
+Releases are automated from `main`. After a PR updates `__version__` and `CHANGELOG.md`,
+[`.github/workflows/auto-release.yml`](../.github/workflows/auto-release.yml) creates
+`vX.Y.Z` when that tag does not already exist. The tag then starts
+[`.github/workflows/release.yml`](../.github/workflows/release.yml), which verifies that the
+commit is on `main`, builds the sdist and wheel, publishes them to PyPI, and creates a
+GitHub release with notes from `CHANGELOG.md`.
 
 ## One-time setup
 
@@ -28,15 +31,17 @@ and creates a GitHub release whose notes come from `CHANGELOG.md`.
 
 1. Update `__version__` in `src/kaggle_fleet/__init__.py` (Semantic Versioning).
 2. In `CHANGELOG.md`, move the `[Unreleased]` entries under a new `## [X.Y.Z] - YYYY-MM-DD` heading.
-3. Commit, then tag and push:
+3. Commit and open a PR targeting `main`:
 
    ```bash
    git commit -am "Release vX.Y.Z"
-   git tag -a vX.Y.Z -m "KaggleFleet X.Y.Z"
-   git push origin main vX.Y.Z
+   git switch -c release/vX.Y.Z
+   git commit -am "Release vX.Y.Z"
+   git push -u origin release/vX.Y.Z
    ```
 
-4. Watch the *Release* workflow in the Actions tab. The build fails early if the tag and
+4. Merge the PR. The *Auto Release* workflow creates the tag automatically, and the
+   *Release* workflow publishes it. The build fails early if the tag and
    `__version__` disagree or the changelog has no section for the version.
 
 ## Checking a build locally
